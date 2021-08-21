@@ -3,16 +3,15 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
+#include <jsoncpp/json/json.h>
 #include "Graph.hpp"
 #include "SubgraphMaps.hpp"
 
-std::string getWLSubgraph(SubgraphsMap &, ReverseSubgraphsMap &, const Graph &, 
-                          const Graph::Vertex *, unsigned, unsigned);
+void getWLSubgraph(Json::Value &, const Graph &, const Graph::Vertex *, unsigned, unsigned, unsigned, unsigned);
 
-void radialSkipGram(RadialContext &, SubgraphsMap &, const std::vector<Graph> &, 
-                    unsigned);
+void radialSkipGram(RadialContext &, const std::vector<std::string> &, const std::vector<Graph> &, unsigned);
 
-void radialSkipGramCore(RadialContext &, SubgraphsMap &, unsigned, const Graph &, 
-                        const Graph::Vertex *, unsigned, unsigned);
+void radialSkipGramCore(RadialContext &, Json::Value &, unsigned, const Graph &, const Graph::Vertex *, unsigned, unsigned);
 
 #endif

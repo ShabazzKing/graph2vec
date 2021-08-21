@@ -28,8 +28,7 @@ const Graph::Vertex * Graph::Edge::getSecondVertex() const
 
 Graph::Graph() : numberOfVertices(0), numberOfEdges(0) {}
 
-Graph::Graph(const Graph & g) : numberOfVertices(g.numberOfVertices), 
-                                numberOfEdges(g.numberOfEdges)
+Graph::Graph(const Graph & g) : numberOfVertices(g.numberOfVertices), numberOfEdges(g.numberOfEdges)
 {
     for (unsigned i = 0; i < g.vertices.size(); i++)
     {
@@ -53,8 +52,12 @@ Graph::Graph(const Graph & g) : numberOfVertices(g.numberOfVertices),
 Graph::~Graph()
 {
     for (unsigned i = 0; i < adjacencyMatrix.size(); i++)
+    {
         for (unsigned j = 0; j < adjacencyMatrix[i].size(); j++)
+        {
             delete adjacencyMatrix[i][j];
+        }
+    }
     for (unsigned i = 0; i < vertices.size(); i++)
         delete vertices[i];
 }
@@ -119,13 +122,19 @@ void Graph::addVertex(unsigned n, unsigned l)
         vertices.push_back(new Vertex(n, l));
         numberOfVertices++;
         for (unsigned i = 0; i < adjacencyMatrix.size(); i++)
+        {
             for (unsigned j = adjacencyMatrix[i].size(); j < vertices.size(); j++)
+            {
                 adjacencyMatrix[i].push_back(nullptr);
+            }
+        }
         for (unsigned i = adjacencyMatrix.size(); i < vertices.size(); i++)
         {
             adjacencyMatrix.push_back(std::vector<Edge *>());
             for (unsigned j = 0; j < vertices.size(); j++)
+            {
                 adjacencyMatrix[i].push_back(nullptr);
+            }
         }
     }
     else
@@ -142,8 +151,7 @@ void Graph::addVertex(unsigned n, unsigned l)
 
 void Graph::addEdge(unsigned v1Number, unsigned v2Number)
 {
-    if (v1Number >= vertices.size() || v2Number >= vertices.size() || 
-        vertices[v1Number] == nullptr || vertices[v2Number] == nullptr)
+    if (v1Number >= vertices.size() || v2Number >= vertices.size() || vertices[v1Number] == nullptr || vertices[v2Number] == nullptr)
     {
         std::cerr << "Edge " << v1Number << " " << v2Number << " cannot be added, "; 
         std::cerr << "one of vertices doesn't exist.\n";
@@ -154,8 +162,7 @@ void Graph::addEdge(unsigned v1Number, unsigned v2Number)
         std::cerr << "Edge (" << v1Number << " " << v2Number << ") already exists.\n";
         return;
     }
-    adjacencyMatrix[v1Number][v2Number] = new Edge(getVertex(v1Number), 
-                                                   getVertex(v2Number));
+    adjacencyMatrix[v1Number][v2Number] = new Edge(getVertex(v1Number), getVertex(v2Number));
     numberOfEdges++;
 }
 
@@ -195,15 +202,18 @@ void Graph::removeVertex(unsigned n)
         for (unsigned j = n; j > i; j--)
             adjacencyMatrix.pop_back();
         for (unsigned j = n; j > i; j--)
+        {
             for (unsigned k = 0; k < adjacencyMatrix.size(); k++)
+            {
                 adjacencyMatrix[k].pop_back();
+            }
+        }
     }
 }
 
 void Graph::removeEdge(unsigned v1Number, unsigned v2Number)
 {
-    if (v1Number >= vertices.size() || v2Number >= vertices.size() || 
-        adjacencyMatrix[v1Number][v2Number] == nullptr)
+    if (v1Number >= vertices.size() || v2Number >= vertices.size() || adjacencyMatrix[v1Number][v2Number] == nullptr)
     {
         std::cerr << "Edge (" << v1Number << " " << v2Number << ") doesn't exist.\n";
         return;

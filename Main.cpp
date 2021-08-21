@@ -8,7 +8,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <filesystem>
-#include <json/json.h>
+#include <jsoncpp/json/json.h>
 #include "Graph.hpp"
 #include "word2vec.hpp"
 #include "SubgraphMaps.hpp"
@@ -20,13 +20,9 @@ void readGraphs(std::filesystem::directory_entry &, std::vector<Graph> &);
 
 std::vector<unsigned> getRandomIndexes(unsigned);
 
-std::vector<std::vector<long double>> negativeSampling(unsigned, unsigned, 
-                                                       const std::vector<Graph> &, 
-                                                       unsigned, SubgraphsMap &);
+std::vector<std::vector<double>> negativeSampling(unsigned, unsigned, const std::vector<Graph> &, unsigned, const std::vector<std::string> &, unsigned);
 
-void updateGraphsEmbeddings(std::vector<std::vector<long double>> &, unsigned, 
-                            const std::vector<long double> &, 
-                            const std::vector<std::vector<long double>> &, double);
+void updateGraphsEmbeddings(std::vector<std::vector<double>> &, unsigned, const std::vector<double> &, const std::vector<std::vector<double>> &, double);
 
 int main(int argc, char ** argv)
 {
@@ -104,47 +100,78 @@ int main(int argc, char ** argv)
     }
     std::vector<Graph> graphsVector; // Vector of the graphs to be embedded
     readGraphs(inputDir, graphsVector);
-    std::vector<std::vector<long double>> graphsEmbeddings; // Matrix of embeddings
+    std::vector<std::vector<double>> graphsEmbeddings; // Matrix of embeddings
     std::random_device dev;
-    std::uniform_real_distribution<long double> unidist(-1.0L, 1.0L);
+    std::uniform_real_distribution<double> unidist(-1.0, 1.0);
     // Initialization of embeddings matrix by random real values
     for (unsigned i = 0; i < graphsVector.size(); i++)
     {
-        graphsEmbeddings.push_back(std::vector<long double>());
+        graphsEmbeddings.push_back(std::vector<double>());
         for (unsigned j = 0; j < dimensions; j++)
+        {
             graphsEmbeddings[i].push_back(unidist(dev));
+        }
     }
-    SubgraphsMap subgraphs; // Look to the SubgraphMaps.hpp
-    ReverseSubgraphsMap revSubgraphs; // Look to the SubgraphMaps.hpp
+    // Creating temporal JSON files names
+    std::vector<std::string> mapName;
+    for (unsigned i = 0; i < graphsVector.size(); i++)
+        mapName.push_back(std::string("map").append(std::to_string(i)).append(".json"));
     // Now we call function, which extracts rooted subgraphs, assigns to them string and ID
     for (unsigned i = 0; i < graphsVector.size(); i++)
+    {
+        Json::Value JSONmap;
+        std::fstream JSONfile;
+        if (! std::filesystem::directory_entry(std::filesystem::path(mapName[i])).exists())
+        {
+            std::cout << i << "\n";
+            JSONfile.open(mapName[i], std::ios::out);
+            JSONfile << "{\n}\n";
+            JSONfile.close();
+        }
         for (unsigned j = 0; j < graphsVector[i].getMaxVertex(); j++)
+        {
             if (graphsVector[i].getVertex(j) != nullptr)
+            {
                 for (unsigned k = 0; k <= degree; k++)
-                    getWLSubgraph(subgraphs, revSubgraphs, graphsVector[i], 
-                                  graphsVector[i].getVertex(j), k, dimensions);
+                {
+                    JSONfile.open(mapName[i], std::ios::in);
+                    JSONfile >> JSONmap;
+                    JSONfile.close();
+                    getWLSubgraph(JSONmap, graphsVector[i], graphsVector[i].getVertex(j), i, j, k, dimensions);
+                    JSONfile.open(mapName[i], std::ios::out);
+                    JSONfile << JSONmap;
+                    JSONfile.close();
+                    JSONmap.clear();
+                }
+            }
+        }
+    }
     RadialContext subgraphContext; // Look to the SubgraphMaps.hpp
-    // Now radial context of every rooted subgraph is being set, like in
-    // subgraph2vec algorithm
-    radialSkipGram(subgraphContext, subgraphs, graphsVector, degree);
-    // Now we call word2vec algorithm in order to make vector representations of
-    // rooted subgraphs
+    // Now radial context of every rooted subgraph is being set, like in subgraph2vec algorithm
+    radialSkipGram(subgraphContext, mapName, graphsVector, degree);
+    // Now we call word2vec algorithm in order to make vector representations of rooted subgraphs
     for (unsigned i = 0; i < graphsVector.size(); i++)
     {
+        std::ifstream JSONfile(mapName[i]);
+        Json::Value JSONmap;
+        JSONfile >> JSONmap;
         std::cout << "word2vec for subgraphs of Graph no " << i << std::endl;
         // Here the minimal subgraph ID for every graph in dataset is chosen. We want that
         // because subgraph IDs are unique for every subgraph in the vocabulary
         // (for all graphs in dataset), but in word2vec we need to assign word IDs from 0
-        unsigned minID = subgraphs[&graphsVector[i]]
-                            [graphsVector[i].getVertex(0)][0].first;
+        unsigned minID = JSONmap["rootVertices"][0]["degrees"][0]["subgraphID"].asUInt();
         for (unsigned j = 0; j < graphsVector[i].getMaxVertex(); j++)
+        {
             for (unsigned k = 0; k <= degree; k++)
-                if (subgraphs[&graphsVector[i]][graphsVector[i].getVertex(j)][k].first 
-                    < minID)
-                    minID = subgraphs[&graphsVector[i]]
-                            [graphsVector[i].getVertex(j)][k].first;
-        word2vec(subgraphs[&graphsVector[i]], revSubgraphs, subgraphContext, 
-                 graphsVector[i], degree, dimensions, epochs, alpha, minID);
+            {
+                if (JSONmap["rootVertices"][j]["degrees"][k]["subgraphID"].asUInt() < minID)
+                {
+                    minID = JSONmap["rootVertices"][j]["degrees"][k]["subgraphID"].asUInt();
+                }
+            }
+        }
+        word2vec(JSONmap, subgraphContext, graphsVector[i], degree, dimensions, epochs, alpha, minID);
+        JSONfile.close();
     }
     // Main loop of the algorithm
     for (unsigned e = 0; e < epochs; e++)
@@ -154,23 +181,28 @@ int main(int argc, char ** argv)
         std::vector<unsigned> indexes = getRandomIndexes(graphsVector.size());
         for (unsigned i = 0; i < graphsVector.size(); i++)
         {
+            std::ifstream JSONfile(mapName[indexes[i]]);
+            Json::Value JSONmap;
+            JSONfile >> JSONmap;
             // Choosing negative samples for negative skipgram
-            std::vector<std::vector<long double>> negSamplesVector = 
-                        negativeSampling(negSamples, indexes[i], graphsVector, 
-                                         degree, subgraphs);
+            std::vector<std::vector<double>> negSamplesVector = negativeSampling(negSamples, indexes[i], graphsVector, degree, mapName, dimensions);
             for (unsigned j = 0; j < graphsVector[indexes[i]].getMaxVertex(); j++)
             {
                 if (graphsVector[indexes[i]].getVertex(j) != nullptr)
+                {
                     for (unsigned k = 0; k <= degree; k++)
                     {
                         // Training graph embeddings
-                        std::vector<long double> temp = 
-                            subgraphs[&graphsVector[indexes[i]]]
-                            [graphsVector[indexes[i]].getVertex(j)][k].second.second;
-                        updateGraphsEmbeddings(graphsEmbeddings, indexes[i], temp, 
-                                               negSamplesVector, alpha);
+                        std::vector<double> temp;
+                        for (unsigned l = 0; l < dimensions; l++)
+                        {
+                            temp.push_back(JSONmap["rootVertices"][j]["degrees"][k]["subgraphEmbedding"][l].asDouble());
+                        }
+                        updateGraphsEmbeddings(graphsEmbeddings, indexes[i], temp, negSamplesVector, alpha);
                     }
+                }
             }
+            JSONfile.close();
         }
     }
     std::filesystem::directory_entry outputDir(outputFileName.parent_path());
@@ -182,7 +214,9 @@ int main(int argc, char ** argv)
     {
         outputFile << "Graph no " << i << std::endl;
         for (unsigned j = 0; j < dimensions; j++)
+        {
             outputFile << "\tx_" << j + 1 << ": " << graphsEmbeddings[i][j] << std::endl;
+        }
     }
     outputFile.close();
     return 0;
@@ -239,8 +273,7 @@ void readGraphs(std::filesystem::directory_entry & dir, std::vector<Graph> & gra
         }
         for (unsigned i = 0; i < ft.size(); i++)
             graphs[graphNumber].addVertex(i, ft[i]);
-        for (std::set<std::pair<unsigned, unsigned>>::iterator i = edgesSet.cbegin(); 
-             i != edgesSet.cend(); i++)
+        for (std::set<std::pair<unsigned, unsigned>>::iterator i = edgesSet.cbegin(); i != edgesSet.cend(); i++)
             graphs[graphNumber].addEdge((*i).first, (*i).second);
         ft.clear();
         edgesSet.clear();
@@ -265,64 +298,71 @@ std::vector<unsigned> getRandomIndexes(unsigned size)
     return indexes;
 }
 
-std::vector<std::vector<long double>> negativeSampling(unsigned samples, 
-                                                       unsigned graphIndex, 
-                                                       const std::vector<Graph> & graphs, 
-                                                       unsigned degree, 
-                                                       SubgraphsMap & subgraphs)
+std::vector<std::vector<double>> negativeSampling(unsigned samples, unsigned graphIndex, const std::vector<Graph> & graphs, unsigned degree, const std::vector<std::string> & subgraphs,
+                                                  unsigned dimensions)
 {
     std::random_device dev;
     std::uniform_int_distribution<unsigned> unidist1(0, graphs.size() - 1);
     std::uniform_int_distribution<unsigned> unidist3(0, degree);
-    std::vector<std::vector<long double>> result;
+    std::vector<std::vector<double>> result;
     std::set<unsigned> subgraphs_used;
     for (unsigned i = 0; i < samples; i++)
     {
+        Json::Value JSONmap;
+        std::ifstream JSONfile;
         unsigned tempGraph, tempVertex, tempDegree;
         do
         {
             do
                 tempGraph = unidist1(dev);
             while (tempGraph == graphIndex);
-            std::uniform_int_distribution<unsigned> unidist2(0, 
-                                                graphs[tempGraph].getMaxVertex() - 1);
+            std::uniform_int_distribution<unsigned> unidist2(0, graphs[tempGraph].getMaxVertex() - 1);
             tempVertex = unidist2(dev);
             tempDegree = unidist3(dev);
+            JSONmap.clear();
+            JSONfile.open(subgraphs[tempGraph]);
+            JSONfile >> JSONmap;
+            JSONfile.close();
         }
-        while (subgraphs_used.count(subgraphs[&graphs[tempGraph]]
-            [graphs[tempGraph].getVertex(tempVertex)][tempDegree].first) == 1);
-        subgraphs_used.insert(subgraphs[&graphs[tempGraph]]
-                    [graphs[tempGraph].getVertex(tempVertex)][tempDegree].first);
-        result.push_back(subgraphs[&graphs[tempGraph]]
-                    [graphs[tempGraph].getVertex(tempVertex)][tempDegree].second.second);
+        while (subgraphs_used.count(JSONmap["rootVertices"][tempVertex]["degrees"][tempDegree]["subgraphID"].asUInt()) == 1);
+        subgraphs_used.insert(JSONmap["rootVertices"][tempVertex]["degrees"][tempDegree]["subgraphID"].asUInt());
+        std::vector<double> resultPart;
+        for (unsigned j = 0; j < dimensions; j++)
+            resultPart.push_back(JSONmap["rootVertices"][tempVertex]["degrees"][tempDegree]["subgraphEmbedding"][j].asDouble());
+        result.push_back(resultPart);
     }
     return result;
 }
 
-void updateGraphsEmbeddings(std::vector<std::vector<long double>> & embeddings, 
-                            unsigned graphIndex, 
-                            const std::vector<long double> & subgraph, 
-                            const std::vector<std::vector<long double>> & negSamples, 
-                            double alpha)
+void updateGraphsEmbeddings(std::vector<std::vector<double>> & embeddings, unsigned graphIndex, const std::vector<double> & subgraph,
+                            const std::vector<std::vector<double>> & negSamples, double alpha)
 {
     // Here we calculate scalar by matrix (graph embeddings) derivative, as described
     // in graph2vec paper
-    std::vector<long double> sums1;
+    std::vector<double> sums1;
     for (unsigned i = 0; i < negSamples.size(); i++)
         sums1.push_back(0.0L);
     for (unsigned i = 0; i < negSamples.size(); i++)
+    {
         for (unsigned j = 0; j < embeddings[0].size(); j++)
+        {
             sums1[i] += embeddings[graphIndex][j] * negSamples[i][j];
-    long double maxSum = sums1[0];
+        }
+    }
+    double maxSum = sums1[0];
     for (unsigned i = 1; i < negSamples.size(); i++)
+    {
         if (maxSum < sums1[i])
+        {
             maxSum = sums1[i];
+        }
+    }
     for (unsigned i = 0; i < embeddings[0].size(); i++)
     {
-        long double sum2 = 0.0L, sum3 = 0.0L;
+        double sum2 = 0.0L, sum3 = 0.0L;
         for (unsigned j = 0; j < negSamples.size(); j++)
         {
-            long double ex;
+            double ex;
             if (sums1[j] - maxSum < -7.0L)
                 ex = 0.0L;
             else
