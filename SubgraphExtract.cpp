@@ -27,15 +27,9 @@ void getWLSubgraph(Json::Value & JSONmap, const Graph & graph, const Graph::Vert
             {
                 for (unsigned j = 0; j < JSONmap["rootVertices"][i]["degrees"].size(); j++)
                 {
-                    if (! JSONmap["rootVertices"][i]["degrees"][j].empty() &&
-                        JSONmap["rootVertices"][i]["degrees"][j]
-                            ["degree"].asUInt() == degree/* &&
-                        ! JSONmap["rootVertices"][i]["degrees"][j]
-                            ["subgraphString"].empty()*/)
+                    if (! JSONmap["rootVertices"][i]["degrees"][j].empty() && JSONmap["rootVertices"][i]["degrees"][j]["degree"].asUInt() == degree)
                     {
                         alreadyInMap = true;
-                        //subgraphString = JSONmap["rootVertices"][i]["degrees"][j]
-                            //["subgraphString"].asString();
                     }
                 }
             }
@@ -44,9 +38,7 @@ void getWLSubgraph(Json::Value & JSONmap, const Graph & graph, const Graph::Vert
     if (! alreadyInMap)
     {
         if (degree == 0)
-        {
-            //subgraphString = std::to_string(node->getLabel());
-        }
+            ;
         else
         {
             std::set<const Graph::Vertex *> adjacentNodes;
@@ -57,29 +49,11 @@ void getWLSubgraph(Json::Value & JSONmap, const Graph & graph, const Graph::Vert
                     adjacentNodes.insert(graph.getVertex(i));
                 }
             }
-            // Building subgraph strings
-            //std::set<std::string> subgraphStrings;
-            for (std::set<const Graph::Vertex *>::iterator i = adjacentNodes.cbegin(); 
-                 i != adjacentNodes.cend(); i++)
+            for (std::set<const Graph::Vertex *>::iterator i = adjacentNodes.cbegin(); i != adjacentNodes.cend(); i++)
             {
-                /*subgraphStrings.insert(getWLSubgraph(JSONmap, graph, *i, graphNumber, 
-                                                     (*i)->getNumber(), degree - 1, 
-                                                     dimensions));*/
-                getWLSubgraph(JSONmap, graph, *i, graphNumber, 
-                              (*i)->getNumber(), degree - 1, 
-                              dimensions);
+                getWLSubgraph(JSONmap, graph, *i, graphNumber, (*i)->getNumber(), degree - 1, dimensions);
             }
-            /*subgraphString = subgraphString + getWLSubgraph(JSONmap, graph, node, 
-                                                            graphNumber, nodeNumber, 
-                                                            degree - 1, dimensions);*/
-            getWLSubgraph(JSONmap, graph, node, 
-                          graphNumber, nodeNumber, 
-                          degree - 1, dimensions);
-            /*std::string temp("");
-            for (std::set<std::string>::iterator i = subgraphStrings.cbegin(); 
-                 i != subgraphStrings.cend(); i++)
-                temp = temp + *i;
-            subgraphString = subgraphString + temp;*/
+            getWLSubgraph(JSONmap, graph, node, graphNumber, nodeNumber, degree - 1, dimensions);
         }
         // Increment unique subgraph ID
         subgraphID++;
@@ -92,11 +66,11 @@ void getWLSubgraph(Json::Value & JSONmap, const Graph & graph, const Graph::Vert
             JSONmap["rootVertices"][0]["vertexNumber"] = nodeNumber;
             JSONmap["rootVertices"][0]["degrees"][0]["degree"] = degree;
             JSONmap["rootVertices"][0]["degrees"][0]["subgraphID"] = tempID;
-            //JSONmap["rootVertices"][0]["degrees"][0]["subgraphString"] = subgraphString;
             // Generate random vector representations of subgraphs
             for (unsigned i = 0; i < dimensions; i++)
-                JSONmap["rootVertices"][0]["degrees"][0]["subgraphEmbedding"][i] = 
-                    unidist(dev);
+            {
+                JSONmap["rootVertices"][0]["degrees"][0]["subgraphEmbedding"][i] = unidist(dev);
+            }
         }
         else
         {
@@ -109,8 +83,7 @@ void getWLSubgraph(Json::Value & JSONmap, const Graph & graph, const Graph::Vert
                     nodeNumberExists = true;
                     for (j = 0; j < JSONmap["rootVertices"][i]["degrees"].size(); j++)
                     {
-                        if (JSONmap["rootVertices"][i]["degrees"][j]
-                            ["degree"].asUInt() == degree)
+                        if (JSONmap["rootVertices"][i]["degrees"][j]["degree"].asUInt() == degree)
                         {
                             degreeExists = true;
                             break;
@@ -118,7 +91,9 @@ void getWLSubgraph(Json::Value & JSONmap, const Graph & graph, const Graph::Vert
                     }
                 }
                 if (nodeNumberExists)
+                {
                     break;
+                }
             }
             if (! nodeNumberExists)
             {
@@ -126,32 +101,28 @@ void getWLSubgraph(Json::Value & JSONmap, const Graph & graph, const Graph::Vert
                 JSONmap["rootVertices"][i]["vertexNumber"] = nodeNumber;
                 JSONmap["rootVertices"][i]["degrees"][0]["degree"] = degree;
                 JSONmap["rootVertices"][i]["degrees"][0]["subgraphID"] = tempID;
-                /*JSONmap["rootVertices"][i]["degrees"][0]
-                    ["subgraphString"] = subgraphString;*/
                 // Generate random vector representations of subgraphs
                 for (unsigned k = 0; k < dimensions; k++)
-                    JSONmap["rootVertices"][i]["degrees"][0]["subgraphEmbedding"][k] = 
-                        unidist(dev);
+                {
+                    JSONmap["rootVertices"][i]["degrees"][0]["subgraphEmbedding"][k] = unidist(dev);
+                }
             }
             else if (nodeNumberExists && ! degreeExists)
             {
                 std::cout << "Subgraph no " << subgraphID << "\n";
                 JSONmap["rootVertices"][i]["degrees"][j]["degree"] = degree;
                 JSONmap["rootVertices"][i]["degrees"][j]["subgraphID"] = tempID;
-                /*JSONmap["rootVertices"][i]["degrees"][j]
-                    ["subgraphString"] = subgraphString;*/
                 // Generate random vector representations of subgraphs
                 for (unsigned k = 0; k < dimensions; k++)
-                    JSONmap["rootVertices"][i]["degrees"][j]["subgraphEmbedding"][k] = 
-                        unidist(dev);
+                {
+                    JSONmap["rootVertices"][i]["degrees"][j]["subgraphEmbedding"][k] = unidist(dev);
+                }
             }
         }
     }
-    //return subgraphString;
 }
 
-void radialSkipGram(RadialContext & context, const std::vector<std::string> & subgraphs, 
-                    const std::vector<Graph> & graphs, unsigned degree)
+void radialSkipGram(RadialContext & context, const std::vector<std::string> & subgraphs, const std::vector<Graph> & graphs, unsigned degree)
 {
     for (unsigned i = 0; i < graphs.size(); i++)
     {
@@ -164,10 +135,8 @@ void radialSkipGram(RadialContext & context, const std::vector<std::string> & su
             {
                 for (unsigned d = 0; d <= degree; d++)
                 {
-                    unsigned subgraphID = 
-                        JSONmap["rootVertices"][j]["degrees"][d]["subgraphID"].asUInt();
-                    radialSkipGramCore(context, JSONmap, subgraphID, 
-                                       graphs[i], graphs[i].getVertex(j), d, degree);
+                    unsigned subgraphID = JSONmap["rootVertices"][j]["degrees"][d]["subgraphID"].asUInt();
+                    radialSkipGramCore(context, JSONmap, subgraphID, graphs[i], graphs[i].getVertex(j), d, degree);
                                         
                 }
             }
@@ -176,30 +145,24 @@ void radialSkipGram(RadialContext & context, const std::vector<std::string> & su
     }
 }
 
-void radialSkipGramCore(RadialContext & context, Json::Value & JSONmap, 
-                        unsigned subgraphID, const Graph & graph, 
-                        const Graph::Vertex * node, unsigned d, unsigned degree)
+void radialSkipGramCore(RadialContext & context, Json::Value & JSONmap, unsigned subgraphID, const Graph & graph, const Graph::Vertex * node, unsigned d, unsigned degree)
 {
     bool hasAdjacentVertices = false;
     for (unsigned i = 0; i < graph.getMaxVertex(); i++)
     {
-        if (node->getNumber() != graph.getVertex(i)->getNumber() &&
-            graph.getEdge(node->getNumber(), graph.getVertex(i)->getNumber()) != nullptr)
+        if (node->getNumber() != graph.getVertex(i)->getNumber() && graph.getEdge(node->getNumber(), graph.getVertex(i)->getNumber()) != nullptr)
         {
             hasAdjacentVertices = true;
-            for (unsigned delta = ((long long) d - 1 > 0 ? d - 1 : 0); 
-                 delta <= ((long long) d + 1 < degree ? d + 1 : degree); delta++)
+            for (unsigned delta = ((long long) d - 1 > 0 ? d - 1 : 0); delta <= ((long long) d + 1 < degree ? d + 1 : degree); delta++)
             {
-                unsigned tempID = JSONmap["rootVertices"][i]["degrees"][delta]
-                    ["subgraphID"].asUInt();
+                unsigned tempID = JSONmap["rootVertices"][i]["degrees"][delta]["subgraphID"].asUInt();
                 if (context.count(subgraphID) == 0)
                     context[subgraphID] = std::multiset<unsigned>();
                 context[subgraphID].insert(tempID);
             }
         }
     }
-    // If particular vertex in particular graph doesn't have adjacent vertices,
-    // generate its context vertex randomly
+    // If particular vertex in particular graph doesn't have adjacent vertices, generate its context vertex randomly
     if (! hasAdjacentVertices)
     {
         std::random_device dev;
@@ -208,11 +171,9 @@ void radialSkipGramCore(RadialContext & context, Json::Value & JSONmap,
         do
             temp = unidist(dev);
         while (graph.getVertex(temp) == nullptr);
-        for (unsigned delta = ((long long) d - 1 > 0 ? d - 1 : 0); 
-             delta <= ((long long) d + 1 < degree ? d + 1 : degree); delta++)
+        for (unsigned delta = ((long long) d - 1 > 0 ? d - 1 : 0); delta <= ((long long) d + 1 < degree ? d + 1 : degree); delta++)
         {
-            unsigned tempID = JSONmap["rootVertices"][temp]["degrees"][delta]
-                ["subgraphID"].asUInt();
+            unsigned tempID = JSONmap["rootVertices"][temp]["degrees"][delta]["subgraphID"].asUInt();
             if (context.count(subgraphID) == 0)
                 context[subgraphID] = std::multiset<unsigned>();
             context[subgraphID].insert(tempID);
