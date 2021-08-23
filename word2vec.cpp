@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 #include <set>
+#include <eigen3/Eigen/Eigen>
 #include <jsoncpp/json/json.h>
 #include "word2vec.hpp"
 #include "Graph.hpp"
@@ -62,9 +63,12 @@ void word2vec(Json::Value & subgraphs, RadialContext & context, const Graph & gr
         std::cout << "\tword2vec: epoch number " << e << std::endl;
         std::vector<std::vector<double>> wordVector, softmaxOutput, Z;
         softmaxOutput = forwardPropagation(X, wordEmbeddings, denseLayerMatrix, wordVector, Z);
+        std::cout << "\tA\n";
         std::vector<std::vector<double>> dL_dZ, dL_dDenseLayerMatrix, dL_dWordVector; 
         backwardPropagation(dL_dZ, dL_dDenseLayerMatrix, dL_dWordVector, Y, softmaxOutput, denseLayerMatrix, wordVector);
+        std::cout << "\tB\n";
         transpose(dL_dWordVector);
+        std::cout << "\tC\n";
         for (unsigned i = 0; i < X.size(); i++)
         {
             for (unsigned j = 0; j < wordEmbeddings[0].first.size(); j++)
@@ -111,9 +115,16 @@ std::vector<std::vector<double>> forwardPropagation(const std::vector<unsigned> 
                                                     const std::vector<std::vector<double>> & denseLayerMatrix, std::vector<std::vector<double>> & wordVector,
                                                     std::vector<std::vector<double>> & Z)
 {
+    std::cout << "X.size():   " << X.size() << "\n";
     for (unsigned i = 0; i < X.size(); i++)
         wordVector.push_back(wordEmbeddings[X[i]].first);
+    std::cout << "\tD\n";
+    std::cout << wordVector.size() << "       " << wordVector[0].size() << "\n";
     transpose(wordVector);
+    std::cout << "\tE\n";
+    std::cout << denseLayerMatrix.size() << "       " << denseLayerMatrix[0].size() << "\n";
+    std::cout << wordVector.size() << "       " << wordVector[0].size() << "\n";
+    std::exit(0);
     Z = matMul(denseLayerMatrix, wordVector);
     return softmax(Z);
 }
@@ -140,12 +151,14 @@ std::vector<std::vector<double>> matMul(const std::vector<std::vector<double>> &
     for (unsigned i = 0; i < m1.size(); i++)
     {
         result.push_back(std::vector<double>());
+        std::cout << "\tF\n";
         for (unsigned j = 0; j < m2[0].size(); j++)
         {
             double temp = 0.0L;
             for (unsigned k = 0; k < m2.size(); k++)
                 temp += m1[i][k] * m2[k][j];
             result[i].push_back(temp);
+            std::cout << "\tG\n" << j << "     " << m2[0].size() << "\n";
         }
     }
     return result;

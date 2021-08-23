@@ -34,6 +34,7 @@ private:
 public:
     Graph();
     Graph(const Graph &);
+    Graph(Graph &&);
     ~Graph();
     Graph & operator=(const Graph &);
     unsigned getNumberOfVertices() const;

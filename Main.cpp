@@ -116,32 +116,41 @@ int main(int argc, char ** argv)
     std::vector<std::string> mapName;
     for (unsigned i = 0; i < graphsVector.size(); i++)
         mapName.push_back(std::string("map").append(std::to_string(i)).append(".json"));
-    // Now we call function, which extracts rooted subgraphs, assigns to them string and ID
+    // Now we call function, which extracts rooted subgraphs and assigns to them ID
+    bool mapsExist = true;
     for (unsigned i = 0; i < graphsVector.size(); i++)
     {
-        Json::Value JSONmap;
-        std::fstream JSONfile;
         if (! std::filesystem::directory_entry(std::filesystem::path(mapName[i])).exists())
         {
+            mapsExist = false;
+            break;
+        }
+    }
+    if (! mapsExist)
+    {
+        for (unsigned i = 0; i < graphsVector.size(); i++)
+        {
+            Json::Value JSONmap;
+            std::fstream JSONfile;
             std::cout << i << "\n";
             JSONfile.open(mapName[i], std::ios::out);
             JSONfile << "{\n}\n";
             JSONfile.close();
-        }
-        for (unsigned j = 0; j < graphsVector[i].getMaxVertex(); j++)
-        {
-            if (graphsVector[i].getVertex(j) != nullptr)
+            for (unsigned j = 0; j < graphsVector[i].getMaxVertex(); j++)
             {
-                for (unsigned k = 0; k <= degree; k++)
+                if (graphsVector[i].getVertex(j) != nullptr)
                 {
-                    JSONfile.open(mapName[i], std::ios::in);
-                    JSONfile >> JSONmap;
-                    JSONfile.close();
-                    getWLSubgraph(JSONmap, graphsVector[i], graphsVector[i].getVertex(j), i, j, k, dimensions);
-                    JSONfile.open(mapName[i], std::ios::out);
-                    JSONfile << JSONmap;
-                    JSONfile.close();
-                    JSONmap.clear();
+                    for (unsigned k = 0; k <= degree; k++)
+                    {
+                        JSONfile.open(mapName[i], std::ios::in);
+                        JSONfile >> JSONmap;
+                        JSONfile.close();
+                        getWLSubgraph(JSONmap, graphsVector[i], graphsVector[i].getVertex(j), i, j, k, dimensions);
+                        JSONfile.open(mapName[i], std::ios::out);
+                        JSONfile << JSONmap;
+                        JSONfile.close();
+                        JSONmap.clear();
+                    }
                 }
             }
         }
@@ -152,9 +161,10 @@ int main(int argc, char ** argv)
     // Now we call word2vec algorithm in order to make vector representations of rooted subgraphs
     for (unsigned i = 0; i < graphsVector.size(); i++)
     {
-        std::ifstream JSONfile(mapName[i]);
+        std::ifstream JSONfileIn(mapName[i]);
         Json::Value JSONmap;
-        JSONfile >> JSONmap;
+        JSONfileIn >> JSONmap;
+        JSONfileIn.close();
         std::cout << "word2vec for subgraphs of Graph no " << i << std::endl;
         // Here the minimal subgraph ID for every graph in dataset is chosen. We want that
         // because subgraph IDs are unique for every subgraph in the vocabulary
@@ -171,7 +181,10 @@ int main(int argc, char ** argv)
             }
         }
         word2vec(JSONmap, subgraphContext, graphsVector[i], degree, dimensions, epochs, alpha, minID);
-        JSONfile.close();
+        std::ofstream JSONfileOut(mapName[i]);
+        JSONfileOut << JSONmap;
+        JSONmap.clear();
+        JSONfileOut.close();
     }
     // Main loop of the algorithm
     for (unsigned e = 0; e < epochs; e++)

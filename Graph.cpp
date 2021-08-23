@@ -49,6 +49,24 @@ Graph::Graph(const Graph & g) : numberOfVertices(g.numberOfVertices), numberOfEd
     }
 }
 
+Graph::Graph(Graph && temp)
+{
+    for (unsigned i = 0; i < temp.vertices.size(); i++)
+    {
+        vertices.push_back(temp.vertices[i]);
+        temp.vertices[i] = nullptr;
+    }
+    for (unsigned i = 0; i < temp.adjacencyMatrix.size(); i++)
+    {
+        adjacencyMatrix.push_back(std::vector<Edge *>());
+        for (unsigned j = 0; j < temp.adjacencyMatrix[0].size(); j++)
+        {
+            adjacencyMatrix[i].push_back(temp.adjacencyMatrix[i][j]);
+            temp.adjacencyMatrix[i][j] = nullptr;
+        }
+    }
+}
+
 Graph::~Graph()
 {
     for (unsigned i = 0; i < adjacencyMatrix.size(); i++)
@@ -125,7 +143,7 @@ void Graph::addVertex(unsigned n, unsigned l)
         {
             for (unsigned j = adjacencyMatrix[i].size(); j < vertices.size(); j++)
             {
-                adjacencyMatrix[i].push_back(nullptr);
+                adjacencyMatrix[i].push_back(new Edge(nullptr, nullptr));
             }
         }
         for (unsigned i = adjacencyMatrix.size(); i < vertices.size(); i++)
@@ -133,7 +151,7 @@ void Graph::addVertex(unsigned n, unsigned l)
             adjacencyMatrix.push_back(std::vector<Edge *>());
             for (unsigned j = 0; j < vertices.size(); j++)
             {
-                adjacencyMatrix[i].push_back(nullptr);
+                adjacencyMatrix[i].push_back(new Edge(nullptr, nullptr));
             }
         }
     }
@@ -157,11 +175,12 @@ void Graph::addEdge(unsigned v1Number, unsigned v2Number)
         std::cerr << "one of vertices doesn't exist.\n";
         return;
     }
-    if (adjacencyMatrix[v1Number][v2Number] != nullptr)
+    if (adjacencyMatrix[v1Number][v2Number]->getFirstVertex() != nullptr && adjacencyMatrix[v1Number][v2Number]->getSecondVertex() != nullptr)
     {
         std::cerr << "Edge (" << v1Number << " " << v2Number << ") already exists.\n";
         return;
     }
+    delete adjacencyMatrix[v1Number][v2Number];
     adjacencyMatrix[v1Number][v2Number] = new Edge(getVertex(v1Number), getVertex(v2Number));
     numberOfEdges++;
 }
@@ -175,16 +194,16 @@ void Graph::removeVertex(unsigned n)
     }
     for (unsigned i = 0; i < vertices.size(); i++)
     {
-        if (adjacencyMatrix[i][n] != nullptr)
+        if (adjacencyMatrix[i][n]->getFirstVertex() != nullptr && adjacencyMatrix[i][n]->getSecondVertex() != nullptr)
         {
             delete adjacencyMatrix[i][n];
-            adjacencyMatrix[i][n] = nullptr;
+            adjacencyMatrix[i][n] = new Edge(nullptr, nullptr);
             numberOfEdges--;
         }
-        if (adjacencyMatrix[n][i] != nullptr)
+        if (adjacencyMatrix[n][i]->getFirstVertex() != nullptr && adjacencyMatrix[n][i]->getSecondVertex() != nullptr)
         {
             delete adjacencyMatrix[n][i];
-            adjacencyMatrix[n][i] = nullptr;
+            adjacencyMatrix[n][i] = new Edge(nullptr, nullptr);
             numberOfEdges--;
         }
     }
@@ -200,11 +219,16 @@ void Graph::removeVertex(unsigned n)
             i--;
         }
         for (unsigned j = n; j > i; j--)
+        {
+            for (unsigned k = 0; k < adjacencyMatrix.size(); k++)
+                delete adjacencyMatrix[j][k];
             adjacencyMatrix.pop_back();
+        }
         for (unsigned j = n; j > i; j--)
         {
             for (unsigned k = 0; k < adjacencyMatrix.size(); k++)
             {
+                delete adjacencyMatrix[k][j];
                 adjacencyMatrix[k].pop_back();
             }
         }
@@ -213,13 +237,14 @@ void Graph::removeVertex(unsigned n)
 
 void Graph::removeEdge(unsigned v1Number, unsigned v2Number)
 {
-    if (v1Number >= vertices.size() || v2Number >= vertices.size() || adjacencyMatrix[v1Number][v2Number] == nullptr)
+    if (v1Number >= vertices.size() || v2Number >= vertices.size() || (adjacencyMatrix[v1Number][v2Number]->getFirstVertex() == nullptr
+        && adjacencyMatrix[v1Number][v2Number]->getSecondVertex() == nullptr))
     {
         std::cerr << "Edge (" << v1Number << " " << v2Number << ") doesn't exist.\n";
         return;
     }
     delete adjacencyMatrix[v1Number][v2Number];
-    adjacencyMatrix[v1Number][v2Number] = nullptr;
+    adjacencyMatrix[v1Number][v2Number] = new Edge(nullptr, nullptr);
     numberOfEdges--;
 }
 

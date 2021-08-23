@@ -141,6 +141,7 @@ void radialSkipGram(RadialContext & context, const std::vector<std::string> & su
                 }
             }
         }
+        JSONmap.clear();
         subgraphsMap.close();
     }
 }
