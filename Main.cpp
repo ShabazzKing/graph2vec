@@ -8,7 +8,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <filesystem>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include "Graph.hpp"
 #include "word2vec.hpp"
 #include "SubgraphMaps.hpp"
@@ -35,12 +35,14 @@ int main(int argc, char ** argv)
         std::cout << "\t--ep <number of epochs> (default: 3)\n";
         std::cout << "\t--alpha <learning rate> (default: 0.025)\n";
         std::cout << "\t--neg <number of negative samples> (default: 20)\n";
+        std::cout << "\t--clean (clean map files)\n";
         return 0;
     }
     std::filesystem::path inputDirName, inputFileName, outputFileName;
     std::filesystem::directory_entry inputDir;
     unsigned degree, dimensions, epochs, negSamples;
     double alpha;
+    bool cleaning;
     int pos = argPos("--dataset", argc, argv);
     if (pos == argc)
     {
@@ -54,7 +56,13 @@ int main(int argc, char ** argv)
         std::cerr << "Lack of output file.\n";
         return EXIT_FAILURE;
     }
-    outputFileName = std::filesystem::path(argv[pos + 1]);
+    std::string fileName;
+    if (argv[pos + 1][0] == '/')
+        fileName = "";
+    else
+        fileName = "./";
+    fileName.append(argv[pos + 1]);
+    outputFileName = std::filesystem::path(fileName);
     pos = argPos("--deg", argc, argv);
     if (pos == argc)
         degree = 10;
@@ -87,6 +95,11 @@ int main(int argc, char ** argv)
             return EXIT_FAILURE;
         }
     }
+    pos = argPos("--clean", argc, argv);
+    if (pos == argc)
+        cleaning = false;
+    else
+        cleaning = true;
     inputDir = std::filesystem::directory_entry(inputDirName);
     if (! inputDir.exists())
     {
@@ -132,7 +145,7 @@ int main(int argc, char ** argv)
         {
             Json::Value JSONmap;
             std::fstream JSONfile;
-            std::cout << i << "\n";
+            std::cout << "Graph no " << i << "\n";
             JSONfile.open(mapName[i], std::ios::out);
             JSONfile << "{\n}\n";
             JSONfile.close();
@@ -232,21 +245,43 @@ int main(int argc, char ** argv)
         }
     }
     outputFile.close();
+    if (cleaning)
+    {
+        for (unsigned i = 0; i < graphsVector.size(); i++)
+        {
+            std::filesystem::remove(std::filesystem::path(mapName[i]));
+        }
+    }
     return 0;
 }
 
 int argPos(const char * s, int argc, char ** argv)
 {
     int pos;
-    for (pos = 1; pos < argc; pos += 2)
+    if (std::strcmp("--clean", s) == 0)
     {
-        if (pos == argc - 1)
+        for (pos = 1; pos < argc; pos++)
         {
-            std::cerr << "Invalid arguments.\n";
-            std::exit(EXIT_FAILURE);
+            if (std::strcmp(argv[pos], s) == 0)
+            {
+                return pos;
+            }
         }
-        if (std::strcmp(argv[pos], s) == 0)
-            return pos;
+    }
+    else
+    {
+        for (pos = 1; pos < argc; pos++)
+        {
+            if (std::strcmp(argv[pos], s) == 0 && pos + 1 < argc)
+            {
+                return pos;
+            }
+            else if (std::strcmp(argv[pos], s) == 0 && pos + 1 == argc)
+            {
+                std::cerr << "Invalid arguments.\n";
+                std::exit(EXIT_FAILURE);
+            }
+        }
     }
     return pos;
 }

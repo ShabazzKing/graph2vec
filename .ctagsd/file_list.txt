@@ -1,0 +1,8 @@
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/Main.cpp
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/SubgraphMaps.hpp
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/word2vec.cpp
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/SubgraphExtract.hpp
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/SubgraphExtract.cpp
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/word2vec.hpp
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/Graph.hpp
+/home/panlukasz/Dokumenty/UJ/Przedmioty/Informatyka/III rok/Licencjat/graph2vec/Graph.cpp

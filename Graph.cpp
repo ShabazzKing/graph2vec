@@ -42,8 +42,30 @@ Graph::Graph(const Graph & g) : numberOfVertices(g.numberOfVertices), numberOfEd
         adjacencyMatrix.push_back(std::vector<Edge *>());
         for (unsigned j = 0; j < g.adjacencyMatrix[0].size(); j++)
         {
-            const Vertex * first = g.adjacencyMatrix[i][j]->getFirstVertex();
-            const Vertex * second = g.adjacencyMatrix[i][j]->getSecondVertex();
+            if (g.adjacencyMatrix[i][j]->getFirstVertex() == nullptr && g.adjacencyMatrix[i][j]->getSecondVertex() == nullptr)
+            {
+                adjacencyMatrix[i].push_back(new Edge(nullptr, nullptr));
+                continue;
+            }
+            unsigned firstNumber = g.adjacencyMatrix[i][j]->getFirstVertex()->getNumber();
+            unsigned secondNumber = g.adjacencyMatrix[i][j]->getSecondVertex()->getNumber();
+            Vertex * first = nullptr, * second = nullptr;
+            for (unsigned k = 0; k < vertices.size(); k++)
+            {
+                if (vertices[k]->getNumber() == firstNumber)
+                {
+                    first = vertices[k];
+                    break;
+                }
+            }
+            for (unsigned k = 0; k < vertices.size(); k++)
+            {
+                if (vertices[k]->getNumber() == secondNumber)
+                {
+                    second = vertices[k];
+                    break;
+                }
+            }
             adjacencyMatrix[i].push_back(new Edge(first, second));
         }
     }
@@ -108,8 +130,30 @@ Graph & Graph::operator=(const Graph & g)
         adjacencyMatrix.push_back(std::vector<Edge *>());
         for (unsigned j = 0; j < g.adjacencyMatrix[0].size(); j++)
         {
-            const Vertex * first = g.adjacencyMatrix[i][j]->getFirstVertex();
-            const Vertex * second = g.adjacencyMatrix[i][j]->getSecondVertex();
+            if (g.adjacencyMatrix[i][j]->getFirstVertex() == nullptr && g.adjacencyMatrix[i][j]->getSecondVertex() == nullptr)
+            {
+                adjacencyMatrix[i].push_back(new Edge(nullptr, nullptr));
+                continue;
+            }
+            unsigned firstNumber = g.adjacencyMatrix[i][j]->getFirstVertex()->getNumber();
+            unsigned secondNumber = g.adjacencyMatrix[i][j]->getSecondVertex()->getNumber();
+            Vertex * first = nullptr, * second = nullptr;
+            for (unsigned k = 0; k < vertices.size(); k++)
+            {
+                if (vertices[k]->getNumber() == firstNumber)
+                {
+                    first = vertices[k];
+                    break;
+                }
+            }
+            for (unsigned k = 0; k < vertices.size(); k++)
+            {
+                if (vertices[k]->getNumber() == secondNumber)
+                {
+                    second = vertices[k];
+                    break;
+                }
+            }
             adjacencyMatrix[i].push_back(new Edge(first, second));
         }
     }
@@ -265,5 +309,7 @@ const Graph::Edge * Graph::getEdge(unsigned v1Number, unsigned v2Number) const
         std::cerr << "Vertex number out of range.\n";
         return nullptr;
     }
+    if (adjacencyMatrix[v1Number][v2Number]->getFirstVertex() == nullptr && adjacencyMatrix[v1Number][v2Number]->getSecondVertex() == nullptr)
+        return nullptr;
     return adjacencyMatrix[v1Number][v2Number];
 }

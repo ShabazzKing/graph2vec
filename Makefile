@@ -12,10 +12,10 @@ $(PROGRAM): $(OBJS)
 	$(CXX) $(OBJS) $(JSONFLAGS) -o $@
 
 Main.o: Main.cpp
-	$(CXX) $< $(CFLAGS) -o $@
+	$(CXX) $< $(CFLAGS) $(JSONFLAGS) -o $@
 
 %.o: %.cpp
-	$(CXX) $< $(CFLAGS) -o $@
+	$(CXX) $< $(CFLAGS) $(JSONFLAGS) -o $@
 
 clean:
 	rm -f $(PROGRAM) $(OBJS)

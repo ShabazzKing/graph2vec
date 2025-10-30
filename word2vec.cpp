@@ -1,27 +1,34 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
 #include <random>
 #include <cmath>
 #include <utility>
 #include <set>
-#include <eigen3/Eigen/Eigen>
-#include <jsoncpp/json/json.h>
+#include <filesystem>
+#include <json/json.h>
 #include "word2vec.hpp"
 #include "Graph.hpp"
 #include "SubgraphMaps.hpp"
 
-std::vector<std::vector<double>> forwardPropagation(const std::vector<unsigned> &, const std::vector<std::pair<std::vector<double>, unsigned>> &,
-                                                    const std::vector<std::vector<double>> &, std::vector<std::vector<double>> &, std::vector<std::vector<double>> &);
+void forwardPropagation(const std::vector<unsigned> &, const std::vector<std::pair<std::vector<double>, unsigned>> &,
+                        const std::vector<std::vector<double>> &, std::vector<std::vector<double>> &, std::string);
 
 void transpose(std::vector<std::vector<double>> &);
 
-std::vector<std::vector<double>> matMul(const std::vector<std::vector<double>> &, const std::vector<std::vector<double>> &);
+void transpose(std::string, unsigned, unsigned);
 
-std::vector<std::vector<double>> softmax(const std::vector<std::vector<double>> &);
+void matMul(std::string, const std::vector<std::vector<double>> &, const std::vector<std::vector<double>> &);
 
-void backwardPropagation(std::vector<std::vector<double>> &, std::vector<std::vector<double>> &, std::vector<std::vector<double>> &, const std::vector<unsigned> &,
-                         const std::vector<std::vector<double>> &, const std::vector<std::vector<double>> &, const std::vector<std::vector<double>> &);
+void matMul(std::string, std::string, unsigned, const std::vector<std::vector<double>> &);
+
+void matMul(std::string, const std::vector<std::vector<double>> &, std::string, unsigned);
+
+void softmax(std::string, unsigned, unsigned);
+
+void backwardPropagation(std::string, std::string, std::string, const std::vector<unsigned> &,
+                         std::string, const std::vector<std::vector<double>> &, const std::vector<std::vector<double>> &);
 
 void word2vec(Json::Value & subgraphs, RadialContext & context, const Graph & graph, unsigned degree, unsigned dimensions, unsigned epochs, double alpha, unsigned minID)
 {
@@ -58,32 +65,40 @@ void word2vec(Json::Value & subgraphs, RadialContext & context, const Graph & gr
             denseLayerMatrix[i].push_back(unidist(dev));
         }
     }
+    std::string softmaxOutput = "softmax.dat", dL_dZ = "dL_dZ.dat", dL_dDenseLayerMatrix = "dL_dDenseLayerMatrix.dat", dL_dWordVector = "dL_dWordVector.dat";
     for (unsigned e = 0; e < epochs; e++)
     {
         std::cout << "\tword2vec: epoch number " << e << std::endl;
-        std::vector<std::vector<double>> wordVector, softmaxOutput, Z;
-        softmaxOutput = forwardPropagation(X, wordEmbeddings, denseLayerMatrix, wordVector, Z);
-        std::cout << "\tA\n";
-        std::vector<std::vector<double>> dL_dZ, dL_dDenseLayerMatrix, dL_dWordVector; 
+        std::vector<std::vector<double>> wordVector;
+        forwardPropagation(X, wordEmbeddings, denseLayerMatrix, wordVector, softmaxOutput);
         backwardPropagation(dL_dZ, dL_dDenseLayerMatrix, dL_dWordVector, Y, softmaxOutput, denseLayerMatrix, wordVector);
-        std::cout << "\tB\n";
-        transpose(dL_dWordVector);
-        std::cout << "\tC\n";
+        transpose(dL_dWordVector, denseLayerMatrix[0].size(), wordVector[0].size());
+        double currentValue;
+        std::ifstream dL_dWordVectorFile(dL_dWordVector, std::ios::binary);
         for (unsigned i = 0; i < X.size(); i++)
         {
             for (unsigned j = 0; j < wordEmbeddings[0].first.size(); j++)
             {
-                wordEmbeddings[X[i]].first[j] -= alpha * dL_dWordVector[i][j];
+                dL_dWordVectorFile.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+                wordEmbeddings[X[i]].first[j] -= alpha * currentValue;
             }
         }
+        dL_dWordVectorFile.close();
+        std::ifstream dL_dDenseLayerMatrixFile(dL_dDenseLayerMatrix, std::ios::binary);
         for (unsigned i = 0; i < denseLayerMatrix.size(); i++)
         {
             for (unsigned j = 0; j < denseLayerMatrix[0].size(); j++)
             {
-                denseLayerMatrix[i][j] -= alpha * dL_dDenseLayerMatrix[i][j];
+                dL_dDenseLayerMatrixFile.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+                denseLayerMatrix[i][j] -= alpha * currentValue;
             }
         }
+        dL_dDenseLayerMatrixFile.close();
     }
+    std::filesystem::remove(std::filesystem::path(softmaxOutput));
+    std::filesystem::remove(std::filesystem::path(dL_dZ));
+    std::filesystem::remove(std::filesystem::path(dL_dDenseLayerMatrix));
+    std::filesystem::remove(std::filesystem::path(dL_dWordVector));
     for (unsigned i = 0; i < wordEmbeddings.size(); i++)
     {
         unsigned wordID = wordEmbeddings[i].second;
@@ -111,22 +126,14 @@ void word2vec(Json::Value & subgraphs, RadialContext & context, const Graph & gr
     }
 }
 
-std::vector<std::vector<double>> forwardPropagation(const std::vector<unsigned> & X, const std::vector<std::pair<std::vector<double>, unsigned>> & wordEmbeddings,
-                                                    const std::vector<std::vector<double>> & denseLayerMatrix, std::vector<std::vector<double>> & wordVector,
-                                                    std::vector<std::vector<double>> & Z)
+void forwardPropagation(const std::vector<unsigned> & X, const std::vector<std::pair<std::vector<double>, unsigned>> & wordEmbeddings,
+                        const std::vector<std::vector<double>> & denseLayerMatrix, std::vector<std::vector<double>> & wordVector, std::string Z)
 {
-    std::cout << "X.size():   " << X.size() << "\n";
     for (unsigned i = 0; i < X.size(); i++)
         wordVector.push_back(wordEmbeddings[X[i]].first);
-    std::cout << "\tD\n";
-    std::cout << wordVector.size() << "       " << wordVector[0].size() << "\n";
     transpose(wordVector);
-    std::cout << "\tE\n";
-    std::cout << denseLayerMatrix.size() << "       " << denseLayerMatrix[0].size() << "\n";
-    std::cout << wordVector.size() << "       " << wordVector[0].size() << "\n";
-    std::exit(0);
-    Z = matMul(denseLayerMatrix, wordVector);
-    return softmax(Z);
+    matMul(Z, denseLayerMatrix, wordVector);
+    softmax(Z, denseLayerMatrix.size(), wordVector[0].size());
 }
 
 void transpose(std::vector<std::vector<double>> & v)
@@ -143,98 +150,184 @@ void transpose(std::vector<std::vector<double>> & v)
     v = result;
 }
 
-std::vector<std::vector<double>> matMul(const std::vector<std::vector<double>> & m1, const std::vector<std::vector<double>> & m2)
+void transpose(std::string v, unsigned rows, unsigned cols)
+{
+    std::ifstream input(v, std::ios::binary);
+    std::vector<std::vector<double>> result;
+    double currentValue;
+    for (unsigned i = 0; i < cols; i++)
+    {
+        result.push_back(std::vector<double>());
+        for (unsigned j = 0; j < rows; j++)
+        {
+            input.seekg(j * cols * sizeof(double) + i * sizeof(double), std::ios::beg);
+            input.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+            result[i].push_back(currentValue);
+        }
+    }
+    input.close();
+    std::ofstream output(v, std::ios::binary);
+    for (unsigned i = 0; i < cols; i++)
+    {
+        for (unsigned j = 0; j < rows; j++)
+        {
+            output.write(reinterpret_cast<char *>(&result[i][j]), sizeof(double));
+        }
+    }
+    output.close();
+}
+
+void matMul(std::string result, const std::vector<std::vector<double>> & m1, const std::vector<std::vector<double>> & m2)
 {
     if (m1[0].size() != m2.size())
         std::exit(EXIT_FAILURE);
-    std::vector<std::vector<double>> result;
+    double resultElement;
+    std::ofstream output(result, std::ios::binary);
     for (unsigned i = 0; i < m1.size(); i++)
     {
-        result.push_back(std::vector<double>());
-        std::cout << "\tF\n";
         for (unsigned j = 0; j < m2[0].size(); j++)
         {
-            double temp = 0.0L;
+            resultElement = 0.0L;
             for (unsigned k = 0; k < m2.size(); k++)
-                temp += m1[i][k] * m2[k][j];
-            result[i].push_back(temp);
-            std::cout << "\tG\n" << j << "     " << m2[0].size() << "\n";
+                resultElement += m1[i][k] * m2[k][j];
+            output.write(reinterpret_cast<char *>(&resultElement), sizeof(resultElement));
         }
     }
-    return result;
+    output.close();
 }
 
-std::vector<std::vector<double>> softmax(const std::vector<std::vector<double>> & v)
+void matMul(std::string result, std::string m1, unsigned m1Rows, const std::vector<std::vector<double>> & m2)
 {
-    std::vector<std::vector<double>> result;
-    for (unsigned i = 0; i < v.size(); i++)
+    double resultElement, m1Element;
+    std::ifstream m1File(m1, std::ios::binary);
+    std::ofstream output(result, std::ios::binary);
+    for (unsigned i = 0; i < m1Rows; i++)
     {
-        result.push_back(std::vector<double>());
-        for (unsigned j = 0; j < v[0].size(); j++)
+        for (unsigned j = 0; j < m2[0].size(); j++)
         {
-            result[i].push_back(0.0L);
+            resultElement = 0.0L;
+            m1File.seekg(i * m2.size() * sizeof(double), std::ios::beg);
+            for (unsigned k = 0; k < m2.size(); k++)
+            {
+                m1File.read(reinterpret_cast<char *>(&m1Element), sizeof(double));
+                resultElement += m1Element * m2[k][j];
+            }
+            output.write(reinterpret_cast<char *>(&resultElement), sizeof(resultElement));
         }
     }
-    for (unsigned i = 0; i < v[0].size(); i++)
+    m1File.close();
+    output.close();
+}
+
+void matMul(std::string result, const std::vector<std::vector<double>> & m1, std::string m2, unsigned m2Cols)
+{
+    double resultElement, m2Element;
+    std::ifstream m2File(m2, std::ios::binary);
+    std::ofstream output(result, std::ios::binary);
+    for (unsigned i = 0; i < m1.size(); i++)
     {
-        double param = v[0][i];
-        for (unsigned j = 1; j < v.size(); j++)
+        for (unsigned j = 0; j < m2Cols; j++)
         {
-            if (param < v[j][i])
+            resultElement = 0.0L;
+            m2File.seekg(j * sizeof(double), std::ios::beg);
+            for (unsigned k = 0; k < m2.size(); k++)
             {
-                param = v[j][i];
+                m2File.read(reinterpret_cast<char *>(&m2Element), sizeof(double));
+                resultElement += m1[i][k] * m2Element;
+                m2File.seekg(m2Cols * sizeof(double));
+            }
+            output.write(reinterpret_cast<char *>(&resultElement), sizeof(resultElement));
+        }
+    }
+    m2File.close();
+    output.close();
+}
+
+void softmax(std::string v, unsigned rows, unsigned cols)
+{
+    std::fstream file(v, std::ios::in | std::ios::ate | std::ios::binary);
+    double currentValue;
+    for (unsigned i = 0; i < cols; i++)
+    {
+        file.seekg(i * sizeof(double), std::ios::beg);
+        file.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+        double param = currentValue;
+        for (unsigned j = 1; j < rows; j++)
+        {
+            file.seekg(j * cols * sizeof(double) + i * sizeof(double), std::ios::beg);
+            file.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+            if (param < currentValue)
+            {
+                param = currentValue;
             }
         }
         double sum = 0.0L;
-        for (unsigned j = 0; j < v.size(); j++)
+        for (unsigned j = 0; j < rows; j++)
         {
-            if (v[j][i] - param < -7.0L)
+            file.seekg(j * cols * sizeof(double) + i * sizeof(double), std::ios::beg);
+            file.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+            if (currentValue - param < -7.0L)
             {
                 continue;
             }
             else
             {
-                sum += std::exp(v[j][i] - param);
+                sum += std::exp(currentValue - param);
             }
         }
-        for (unsigned j = 0; j < v.size(); j++)
+        for (unsigned j = 0; j < rows; j++)
         {
-            if (v[j][i] - param < -7.0L)
+            file.seekg(j * cols * sizeof(double) + i * sizeof(double), std::ios::beg);
+            file.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+            file.seekp(j * cols * sizeof(double) + i * sizeof(double), std::ios::beg);
+            if (currentValue - param < -7.0L)
             {
-                result[j][i] = 0.0L;
+                currentValue = 0.0L;
+                file.write(reinterpret_cast<char *>(&currentValue), sizeof(double));
             }
             else
             {
-                result[j][i] = std::exp(v[j][i] - param) / sum;
+                currentValue = std::exp(currentValue - param) / sum;
+                file.write(reinterpret_cast<char *>(&currentValue), sizeof(double));
             }
         }
     }
-    return result;
+    file.close();
 }
 
-void backwardPropagation(std::vector<std::vector<double>> & dL_dZ, std::vector<std::vector<double>> & dL_dDenseLayerMatrix, std::vector<std::vector<double>> & dL_dWordVector,
-                         const std::vector<unsigned> & Y, const std::vector<std::vector<double>> & softmaxOutput, const std::vector<std::vector<double>> & denseLayerMatrix,
+void backwardPropagation(std::string dL_dZ, std::string dL_dDenseLayerMatrix, std::string dL_dWordVector,
+                         const std::vector<unsigned> & Y, std::string softmaxOutput, const std::vector<std::vector<double>> & denseLayerMatrix,
                          const std::vector<std::vector<double>> & wordVector)
 {
-    for (unsigned i = 0; i < softmaxOutput.size(); i++)
+    std::fstream softmaxFile(softmaxOutput, std::ios::in | std::ios::binary);
+    std::fstream dL_dZFile(dL_dZ, std::ios::ate | std::ios::binary);
+    double currentValue;
+    for (unsigned i = 0; i < denseLayerMatrix.size(); i++)
     {
-        dL_dZ.push_back(std::vector<double>());
-        for (unsigned j = 0; j < softmaxOutput[0].size(); j++)
+        for (unsigned j = 0; j < wordVector[0].size(); j++)
         {
-            dL_dZ[i].push_back(softmaxOutput[i][j] - Y[j]);
+            softmaxFile.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+            currentValue -= Y[j];
+            dL_dZFile.write(reinterpret_cast<char *>(&currentValue), sizeof(double));
         }
     }
+    softmaxFile.close();
+    dL_dZFile.close();
     std::vector<std::vector<double>> tempWordVector = wordVector;
     transpose(tempWordVector);
-    dL_dDenseLayerMatrix = matMul(dL_dZ, tempWordVector);
-    for (unsigned i = 0; i < dL_dDenseLayerMatrix.size(); i++)
+    matMul(dL_dDenseLayerMatrix, dL_dZ, denseLayerMatrix.size(), tempWordVector);
+    std::fstream dL_dDenseLayerMatrixFile(dL_dDenseLayerMatrix, std::ios::in | std::ios::ate | std::ios::binary);
+    for (unsigned i = 0; i < denseLayerMatrix.size(); i++)
     {
-        for (unsigned j = 0; j < dL_dDenseLayerMatrix[0].size(); j++)
+        for (unsigned j = 0; j < tempWordVector[0].size(); j++)
         {
-            dL_dDenseLayerMatrix[i][j] *= 1.0L / tempWordVector.size();
+            dL_dDenseLayerMatrixFile.read(reinterpret_cast<char *>(&currentValue), sizeof(double));
+            currentValue *= 1.0L / tempWordVector.size();
+            dL_dDenseLayerMatrixFile.write(reinterpret_cast<char *>(&currentValue), sizeof(double));
         }
     }
+    dL_dDenseLayerMatrixFile.close();
     std::vector<std::vector<double>> tempDenseLayerMatrix = denseLayerMatrix;
     transpose(tempDenseLayerMatrix);
-    dL_dWordVector = matMul(tempDenseLayerMatrix, dL_dZ);
+    matMul(dL_dWordVector, tempDenseLayerMatrix, dL_dZ, wordVector[0].size());
 }

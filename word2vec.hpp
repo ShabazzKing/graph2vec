@@ -2,7 +2,7 @@
 #define WORD2VEC_HPP
 
 #include <vector>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include "Graph.hpp"
 #include "SubgraphMaps.hpp"
 

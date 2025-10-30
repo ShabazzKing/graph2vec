@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include "Graph.hpp"
 #include "SubgraphMaps.hpp"
 
